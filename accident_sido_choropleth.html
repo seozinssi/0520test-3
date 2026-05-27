@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>시도별 사고건수 코로플레스</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; background:#f8fafc; color:#1e293b; }
+  header { background: linear-gradient(135deg,#1e40af,#60a5fa); color:white; padding:20px 28px; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header p  { font-size: 13px; opacity:.9; margin-top: 4px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 22px; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; }
+  .card-head { padding:12px 18px; background:#dbeafe; border-bottom:1px solid #bfdbfe; font-size:14px; font-weight:600; color:#1e3a8a; }
+  .card-body { padding: 16px; }
+  .meta { font-size: 12px; color:#475569; margin-bottom: 10px; }
+  #map { height: 640px; border:1px solid #e2e8f0; border-radius:8px; }
+  .sido-label {
+    background:transparent; border:none; color:#0f172a; font-weight:700; font-size:11px;
+    text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white; box-shadow:none;
+  }
+  .info-box {
+    background:white; padding:8px 12px; border-radius:6px;
+    font-size:12px; line-height:1.6; box-shadow: 0 2px 4px rgba(0,0,0,.12);
+  }
+  .legend { line-height: 1.85; }
+  .legend i {
+    display:inline-block; width:14px; height:14px; margin-right:6px;
+    vertical-align:middle; opacity:0.85;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🗺️ 시도별 사고건수 코로플레스</h1>
+  <p>전국 사고다발지역 표준데이터 — 17개 시도 사고건수 합계 (Leaflet)</p>
+</header>
+
+<main>
+  <div class="card">
+    <div class="card-head">시도 사고건수 단계구분도</div>
+    <div class="card-body">
+      <div class="meta">
+        총 <b>12780</b>건 레코드 · 총 사고건수 합계 <b>57,344</b>건 (사전 집계).
+        시도 위에 마우스를 올리면 강조, 클릭하면 팝업으로 건수 표시.
+      </div>
+      <div id="map"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── 사전 집계 데이터 (Python 빌드 시점에 인라인) ─────────────────
+const REGION_DATA = {
+  "전북": 1907,
+  "제주": 615,
+  "경남": 2675,
+  "경북": 3054,
+  "전남": 1685,
+  "충남": 1494,
+  "충북": 1725,
+  "경기": 10032,
+  "세종": 151,
+  "울산": 817,
+  "대전": 1436,
+  "광주": 1276,
+  "인천": 1223,
+  "대구": 5903,
+  "부산": 4206,
+  "서울": 18132,
+  "강원": 1013
+};
+const SIDO_NAME_MAP = {
+  "서울특별시": "서울",
+  "부산광역시": "부산",
+  "대구광역시": "대구",
+  "인천광역시": "인천",
+  "광주광역시": "광주",
+  "대전광역시": "대전",
+  "울산광역시": "울산",
+  "세종특별자치시": "세종",
+  "경기도": "경기",
+  "강원특별자치도": "강원",
+  "강원도": "강원",
+  "충청북도": "충북",
+  "충청남도": "충남",
+  "전북특별자치도": "전북",
+  "전라북도": "전북",
+  "전라남도": "전남",
+  "경상북도": "경북",
+  "경상남도": "경남",
+  "제주특별자치도": "제주",
+  "제주도": "제주"
+};
+
+// ── 색상 단계 (파랑 농도, ColorBrewer Blues 7 계열) ───────────────
+function getColor(v) {
+  return v > 15000 ? '#08306b' :
+         v > 10000 ? '#08519c' :
+         v >  5000 ? '#2171b5' :
+         v >  3000 ? '#4292c6' :
+         v >  1500 ? '#6baed6' :
+         v >   500 ? '#9ecae1' :
+                     '#deebf7';
+}
+
+const GRADES = [0, 500, 1500, 3000, 5000, 10000, 15000];
+
+const GEOJSON_URL = 'https://cdn.jsdelivr.net/gh/southkorea/southkorea-maps@master/kostat/2018/json/skorea-provinces-2018-geo.json';
+
+// ── 지도 초기화 ─────────────────────────────────────────────────
+const map = L.map('map').setView([36.3, 127.8], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+// 로딩 안내
+const loadingCtrl = L.control({ position: 'topright' });
+loadingCtrl.onAdd = () => {
+  const div = L.DomUtil.create('div', 'info-box');
+  div.id = 'geo-loading';
+  div.innerHTML = '⏳ 시도 GeoJSON 로딩 중…';
+  return div;
+};
+loadingCtrl.addTo(map);
+
+// 마우스오버 정보 패널 (좌상단)
+const infoCtrl = L.control({ position: 'topleft' });
+infoCtrl.onAdd = function () {
+  this._div = L.DomUtil.create('div', 'info-box');
+  this.update();
+  return this._div;
+};
+infoCtrl.update = function (props, value) {
+  this._div.innerHTML = props
+    ? `<b>${props}</b><br>사고 ${value.toLocaleString()}건`
+    : '<b>시도별 사고건수</b><br>마우스를 올려보세요';
+};
+infoCtrl.addTo(map);
+
+// 스타일·하이라이트 함수
+function styleFeature(feature) {
+  const sido = SIDO_NAME_MAP[feature.properties.name] || feature.properties.name;
+  const v = REGION_DATA[sido] || 0;
+  return {
+    fillColor: getColor(v),
+    fillOpacity: 0.78,
+    color: 'white',
+    weight: 1.2
+  };
+}
+
+function highlight(e) {
+  const layer = e.target;
+  layer.setStyle({ weight: 3, color: '#1e3a8a', fillOpacity: 0.92 });
+  layer.bringToFront();
+  const sido = SIDO_NAME_MAP[layer.feature.properties.name] || layer.feature.properties.name;
+  infoCtrl.update(sido, REGION_DATA[sido] || 0);
+}
+function resetHL(e) {
+  geoLayer.resetStyle(e.target);
+  infoCtrl.update();
+}
+
+let geoLayer;
+
+fetch(GEOJSON_URL)
+  .then(r => { if (!r.ok) throw new Error('GeoJSON load failed'); return r.json(); })
+  .then(geo => {
+    geoLayer = L.geoJSON(geo, {
+      style: styleFeature,
+      onEachFeature: (feature, layer) => {
+        const sido = SIDO_NAME_MAP[feature.properties.name] || feature.properties.name;
+        const v = REGION_DATA[sido] || 0;
+        layer.bindPopup(
+          `<div style="font-size:13px"><b style="font-size:14px">${sido}</b>` +
+          `<br>사고건수 <b>${v.toLocaleString()}</b>건</div>`
+        );
+        layer.bindTooltip(sido, { permanent: true, direction: 'center', className: 'sido-label' });
+        layer.on({ mouseover: highlight, mouseout: resetHL });
+      }
+    }).addTo(map);
+    try { map.fitBounds(geoLayer.getBounds()); } catch (e) {}
+    document.getElementById('geo-loading')?.remove();
+  })
+  .catch(err => {
+    console.warn('GeoJSON 로드 실패:', err);
+    const el = document.getElementById('geo-loading');
+    if (el) el.innerHTML = '⚠️ GeoJSON 로드 실패 — 인터넷 연결을 확인해 주세요';
+  });
+
+// ── 범례 (우하단) ───────────────────────────────────────────────
+const legend = L.control({ position: 'bottomright' });
+legend.onAdd = () => {
+  const div = L.DomUtil.create('div', 'info-box legend');
+  let html = '<b>사고건수</b><br>';
+  for (let i = 0; i < GRADES.length; i++) {
+    const from = GRADES[i];
+    const to = GRADES[i + 1];
+    html += `<i style="background:${getColor(from + 1)}"></i>` +
+            `${from.toLocaleString()}${to ? '&ndash;' + to.toLocaleString() : '+'}<br>`;
+  }
+  div.innerHTML = html;
+  return div;
+};
+legend.addTo(map);
+</script>
+</body>
+</html>

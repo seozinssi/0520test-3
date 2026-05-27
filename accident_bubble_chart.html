@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>17개 시도별 교통사고 현황 버블차트</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            background-color: #f8f9fa;
+        }
+        .chart-container {
+            width: 90%;
+            max-width: 1000px;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        h1 {
+            color: #212529;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>17개 시도별 교통사고 현황</h1>
+    <p>X축: 사고건수, Y축: 사망자수, 원 크기: 사상자수 (비례/제곱근 스케일링)</p>
+    
+    <div class="chart-container">
+        <canvas id="bubbleChart"></canvas>
+    </div>
+
+    <script>
+        const rawData = [
+            { "sido": "전북특별자치도", "x": 1907, "y": 136, "casualties": 1971 },
+            { "sido": "제주특별자치도", "x": 615, "y": 15, "casualties": 640 },
+            { "sido": "경상남도", "x": 2675, "y": 116, "casualties": 2778 },
+            { "sido": "경상북도", "x": 3054, "y": 123, "casualties": 3173 },
+            { "sido": "전라남도", "x": 1685, "y": 134, "casualties": 1809 },
+            { "sido": "충청남도", "x": 1494, "y": 77, "casualties": 1534 },
+            { "sido": "충청북도", "x": 1725, "y": 87, "casualties": 1841 },
+            { "sido": "경기도", "x": 10032, "y": 406, "casualties": 10563 },
+            { "sido": "세종특별자치시", "x": 151, "y": 2, "casualties": 161 },
+            { "sido": "울산광역시", "x": 817, "y": 27, "casualties": 873 },
+            { "sido": "대전광역시", "x": 1436, "y": 88, "casualties": 1518 },
+            { "sido": "광주광역시", "x": 1276, "y": 78, "casualties": 1339 },
+            { "sido": "인천광역시", "x": 1223, "y": 78, "casualties": 1273 },
+            { "sido": "대구광역시", "x": 5903, "y": 177, "casualties": 6175 },
+            { "sido": "부산광역시", "x": 4206, "y": 204, "casualties": 4430 },
+            { "sido": "서울특별시", "x": 18132, "y": 585, "casualties": 19324 },
+            { "sido": "강원특별자치도", "x": 1013, "y": 66, "casualties": 1055 }
+        ];
+
+        // 17개 고유 색상 배열
+        const colors = [
+            'rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)', 'rgba(255, 206, 86, 0.6)', 
+            'rgba(75, 192, 192, 0.6)', 'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)',
+            'rgba(199, 199, 199, 0.6)', 'rgba(83, 102, 255, 0.6)', 'rgba(255, 99, 255, 0.6)',
+            'rgba(99, 255, 132, 0.6)', 'rgba(255, 159, 159, 0.6)', 'rgba(159, 255, 64, 0.6)',
+            'rgba(64, 159, 255, 0.6)', 'rgba(206, 86, 255, 0.6)', 'rgba(86, 206, 255, 0.6)',
+            'rgba(255, 86, 86, 0.6)', 'rgba(86, 255, 206, 0.6)'
+        ];
+
+        // Chart.js를 위한 datasets 생성
+        const datasets = rawData.map((d, index) => {
+            return {
+                label: d.sido,
+                data: [{
+                    x: d.x,
+                    y: d.y,
+                    // 사상자수의 제곱근을 구한 후, 화면에 적당한 크기로 보이도록 배율(0.3) 적용
+                    r: Math.sqrt(d.casualties) * 0.3,
+                    casualtiesRaw: d.casualties // 툴팁 표시용 원본 데이터
+                }],
+                backgroundColor: colors[index % colors.length],
+                borderColor: colors[index % colors.length].replace('0.6', '1'),
+                borderWidth: 1
+            };
+        });
+
+        const ctx = document.getElementById('bubbleChart').getContext('2d');
+        const bubbleChart = new Chart(ctx, {
+            type: 'bubble',
+            data: {
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const raw = context.raw;
+                                return [
+                                    context.dataset.label,
+                                    `사고건수: ${raw.x.toLocaleString()}건`,
+                                    `사망자수: ${raw.y.toLocaleString()}명`,
+                                    `사상자수: ${raw.casualtiesRaw.toLocaleString()}명`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: '사고건수 (건)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: '사망자수 (명)'
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
