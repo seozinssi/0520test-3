@@ -3,21 +3,139 @@
 <head>
   <meta charset="UTF-8">
   <title>교통사고 시각화</title>
-</head>
-<body>
-  <h1>교통사고 시각화</h1>
+  <style>
+    body {
+      font-family: 'Malgun Gothic', Arial, sans-serif;
+      margin: 0;
+      background: #f5f6f8;
+      color: #222;
+      line-height: 1.7;
+    }
 
-  <ul>
-    <li>
-      <a href="./accident_bubble_chart.html">
-        17개 시도별 교통사고 버블차트
-      </a>
-    </li>
-    <li>
-      <a href="./accident_sido_choropleth.html">
-        시도별 교통사고 지도
-      </a>
-    </li>
-  </ul>
+    header {
+      background: #222;
+      color: white;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 36px;
+    }
+
+    header p {
+      margin-top: 10px;
+      color: #ddd;
+    }
+
+    main {
+      max-width: 1000px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    section {
+      background: white;
+      margin-bottom: 28px;
+      padding: 28px;
+      border-radius: 14px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    }
+
+    h2 {
+      margin-top: 0;
+      border-left: 6px solid #2563eb;
+      padding-left: 12px;
+    }
+
+    .hero-img {
+      width: 100%;
+      border-radius: 12px;
+      margin-top: 16px;
+    }
+
+    .safety-img {
+      width: 100%;
+      max-width: 700px;
+      display: block;
+      margin: 16px auto 0;
+      border-radius: 12px;
+    }
+
+    .links a {
+      display: inline-block;
+      margin: 8px 8px 0 0;
+      padding: 12px 18px;
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+    }
+
+    .links a:hover {
+      background: #1d4ed8;
+    }
+
+    #article {
+      white-space: pre-wrap;
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>교통사고 시각화</h1>
+    <p>도심 교통사고 사례와 지역별 사고 데이터를 함께 살펴봅니다.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>사고 현장</h2>
+      <p>
+        차량이 인도로 돌진한 사고 장면입니다. 도심 보행 공간의 안전 문제를 보여주는 사례입니다.
+      </p>
+      <img class="hero-img" src="./교통사고_사진_가상1.png" alt="교통사고 현장 사진">
+    </section>
+
+    <section>
+      <h2>기사 내용</h2>
+      <div id="article">기사 내용을 불러오는 중입니다...</div>
+    </section>
+
+    <section>
+      <h2>교통사고 예방수칙</h2>
+      <img class="safety-img" src="./교통사고_사진_가상2.jpg" alt="교통사고 예방수칙 이미지">
+    </section>
+
+    <section>
+      <h2>데이터 시각화 보기</h2>
+      <p>
+        아래 버튼을 누르면 17개 시도별 교통사고 현황을 차트와 지도로 확인할 수 있습니다.
+      </p>
+      <div class="links">
+        <a href="./accident_bubble_chart.html">버블차트 보기</a>
+        <a href="./accident_sido_choropleth.html">지도 보기</a>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    fetch('./교통사고_글_가상.txt')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('텍스트 파일을 불러오지 못했습니다.');
+        }
+        return response.text();
+      })
+      .then(text => {
+        document.getElementById('article').textContent = text;
+      })
+      .catch(error => {
+        document.getElementById('article').textContent =
+          '기사 텍스트를 불러오지 못했습니다. 파일명과 경로를 확인해주세요.';
+      });
+  </script>
 </body>
 </html>
